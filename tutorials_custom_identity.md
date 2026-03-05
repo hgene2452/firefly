@@ -211,10 +211,6 @@ org: BankB
 
 ## 3 실습
 
-> 해당 기능은 멀티파티 기능이기 때문에 실습을 위해 멀티파티로 설정을 변경한 후 원복한다
-원복시, 생성한 identity(org, custom)는 DB에 등록되지만 비활성화된다
-> 
-
 ### 3.1 새로운 계정 생성
 
 - 새로운 계정 생성시, FF는 자동으로 signing container에 해당 키를 등록한다
@@ -224,12 +220,11 @@ org: BankB
 ff accounts create dev
 ```
 
-```bash
-# 결과
+- 계정이 정상적으로 생성되면 아래와 같은 응답이 나온다
+
+```json
 {
-	# Ethereum Address
   "address": "0x43a495d54427d31bcf87c355bea9e11c45c424ea",
-  # 서명 키
   "privateKey": "29cdc3f3eb229fa42f8a33fcaeacbeffb4840da6134fdb7dfb7a43db461fed16",
   "ptmPublicKey": ""
 }
@@ -237,20 +232,70 @@ ff accounts create dev
 
 ---
 
-### 3.2 Org UUID 조회
+### 3.2 Org UUID 생성 및 조회
 
 - Custom Identity를 생성하려면 parent가 될 org UUID가 필요하다
-- 다만 싱글모드인 경우, org는 암묵적으로만 존재하고 identity registry에 등록되지 않는다
-따라서 아래의 API 응답값에 org가 포함되지 않는다
+- 다만 싱글모드인 경우, 디폴트 org는 암묵적으로만 존재하고 identity registry에 등록되지 않는다
+- 따라서 Root 조직(org identity)을 따로 생성해준 다음 나머지 단계를 진행해야 한다
 
 ```bash
-Supernode
-   └ implicit org
-        └ custom identities
+ curl -u "firefly:firefly" -X POST http://localhost:5000/api/v1/identities \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "hana",
+    "type": "org",
+    "profile": {
+      "description": "Hana financial group"
+    }
+  }'
+```
+
+- org가 정상적으로 생성되면 아래와 같은 응답이 나온다
+
+```json
+{
+    "id": "f42bf3ff-bd5d-4e05-8f30-e59878b51498",
+    "did": "did:firefly:org/hana",
+    "type": "org",
+    "namespace": "default",
+    "name": "hana",
+    "profile": {
+        "description": "Hana financial group"
+    },
+    "messages": {
+        "claim": null,
+        "verification": null,
+        "update": null
+    },
+    "created": "2026-03-05T05:42:50.447640212Z",
+    "updated": "2026-03-05T05:42:50.447640212Z"
+}
 ```
 
 ```bash
-curl -u "firefly:firefly" http://localhost:5000/api/v1/status
+curl -u "firefly:firefly" -s http://localhost:5000/api/v1/identities?type=org
+```
+
+```json
+[
+    {
+        "id": "f42bf3ff-bd5d-4e05-8f30-e59878b51498",
+        "did": "did:firefly:org/hana",
+        "type": "org",
+        "namespace": "default",
+        "name": "hana",
+        "profile": {
+            "description": "Hana financial group"
+        },
+        "messages": {
+            "claim": null,
+            "verification": null,
+            "update": null
+        },
+        "created": "2026-03-05T05:42:50.447640212Z",
+        "updated": "2026-03-05T05:42:50.447640212Z"
+    }
+]
 ```
 
 ---
@@ -265,9 +310,29 @@ curl -u "firefly:firefly" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test-custom-identity",
-    "key": "<3.1 결과 address값>"
-    "parent": "<3.2 결과 org.id 값>"
+    "key": "0x43a495d54427d31bcf87c355bea9e11c45c424ea", # 3.1 결과 address값
+    "parent": "f42bf3ff-bd5d-4e05-8f30-e59878b51498"     # 3.2 결과 org.id 값
   }'
+```
+
+- custom identity가 정상적으로 등록되면 아래와 같은 응답이 나온다
+
+```json
+{
+    "id": "ca682f8a-eb52-46b6-9dcd-cc9970d52fb4",
+    "did": "did:firefly:test-custom-identity",
+    "type": "custom",
+    "parent": "f42bf3ff-bd5d-4e05-8f30-e59878b51498",
+    "namespace": "default",
+    "name": "test-custom-identity",
+    "messages": {
+        "claim": null,
+        "verification": null,
+        "update": null
+    },
+    "created": "2026-03-05T05:46:49.471068476Z",
+    "updated": "2026-03-05T05:46:49.471068476Z"
+}
 ```
 
 ---
@@ -276,4 +341,55 @@ curl -u "firefly:firefly" \
 
 ```bash
 curl -u "firefly:firefly" http://localhost:5000/api/v1/identities?fetchverifiers=true
+```
+
+```json
+[
+		// custom identity
+    {
+        "id": "ca682f8a-eb52-46b6-9dcd-cc9970d52fb4",
+        "did": "did:firefly:test-custom-identity",
+        "type": "custom",
+        "parent": "f42bf3ff-bd5d-4e05-8f30-e59878b51498",
+        "namespace": "default",
+        "name": "test-custom-identity",
+        "messages": {
+            "claim": null,
+            "verification": null,
+            "update": null
+        },
+        "created": "2026-03-05T05:46:49.471068476Z",
+        "updated": "2026-03-05T05:46:49.471068476Z",
+        "verifiers": [
+            {
+                "type": "ethereum_address",
+                "value": "0x43a495d54427d31bcf87c355bea9e11c45c424ea"
+            }
+        ]
+    },
+    // org identity
+    {
+        "id": "f42bf3ff-bd5d-4e05-8f30-e59878b51498",
+        "did": "did:firefly:org/hana",
+        "type": "org",
+        "namespace": "default",
+        "name": "hana",
+        "profile": {
+            "description": "Hana financial group"
+        },
+        "messages": {
+            "claim": null,
+            "verification": null,
+            "update": null
+        },
+        "created": "2026-03-05T05:42:50.447640212Z",
+        "updated": "2026-03-05T05:42:50.447640212Z",
+        "verifiers": [
+            {
+                "type": "ethereum_address",
+                "value": ""
+            }
+        ]
+    }
+]
 ```
